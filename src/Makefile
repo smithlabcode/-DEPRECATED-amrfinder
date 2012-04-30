@@ -22,13 +22,13 @@
 app_subdirs = analysis simulation utils
 
 all:
-	@make -C common ROOT=$(ROOT) OPT=1
+	@make -C smithlab_cpp ROOT=$(ROOT) OPT=1
 	@for i in $(app_subdirs); do \
                 make -C $${i} ROOT=$(ROOT) OPT=1; \
         done;
 
 install:
-	@make -C common ROOT=$(ROOT) OPT=1
+	@make -C smithlab_cpp ROOT=$(ROOT) OPT=1
 	@for i in $(app_subdirs); do \
                 make -C $${i} ROOT=$(ROOT) OPT=1 install; \
         done;
@@ -39,7 +39,7 @@ test:
         done;
 
 clean:
-	@make -C common ROOT=$(ROOT) OPT=1 clean
+	@make -C smithlab_cpp ROOT=$(ROOT) OPT=1 clean
 	@for i in $(app_subdirs); do \
                 make -C $${i} ROOT=$(ROOT) OPT=1 clean; \
         done;
