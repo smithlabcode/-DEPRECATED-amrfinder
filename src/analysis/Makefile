@@ -19,17 +19,16 @@
 #  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #  02110-1301 USA
 
-ifndef ROOT
-$(error Must define ROOT variable)
+ifndef SMITHLAB_CPP 
+$(error Must define SMITHLAB_CPP variable)
 endif
 
 PROGS = amrfinder amrtester amrrefiner
 
 SOURCES = $(wildcard *.cpp)
 
-LIBDIR = $(ROOT)/lib
-INCLUDEDIRS = $(ROOT)/include
-COMMON_DIR = $(ROOT)/src/common/
+INCLUDEDIRS = $(SMITHLAB_CPP)
+INCLUDEARGS = $(addprefix -I,$(INCLUDEDIRS))
 
 LIBS += -lgsl -lgslcblas 
 
@@ -52,18 +51,20 @@ endif
 
 all: $(PROGS)
 
-$(PROGS): $(addprefix $(COMMON_DIR), GenomicRegion.o smithlab_os.o \
-	smithlab_utils.o OptionParser.o MappedRead.o EpireadStats.o EpireadIO.o Epiread.o)
+$(PROGS): $(addprefix $(SMITHLAB_CPP)/, GenomicRegion.o smithlab_os.o \
+	smithlab_utils.o OptionParser.o MappedRead.o)
+
+amrfinder amrtester amrrefiner: EpireadStats.o EpireadIO.o Epiread.o
 
 %.o: %.cpp %.hpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $< -I$(COMMON_DIR)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< $(INCLUDEARGS)
+
+%: %.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(INCLUDEARGS) $(LIBS)
 
 install: all
 	@mkdir -p $(ROOT)/bin
 	@install -m 755 $(PROGS) $(ROOT)/bin
-
-%: %.cpp
-	$(CXX) $(CFLAGS) -o $@ $^ -I$(COMMON_DIR) -L$(LIBDIR) $(LIBS)
 
 test_%: %
 	@$(TEST_DIR)/$@ $(TEST_DIR)

@@ -21,17 +21,18 @@
 #
 
 ROOT = $(shell pwd)
+SMITHLAB_CPP = $(shell pwd)/src/smithlab_cpp
 
 BINDIR = $(ROOT)/bin
 
 all:
-	@make -C src ROOT=$(ROOT) OPT=1
+	@make -C src SMITHLAB_CPP=$(SMITHLAB_CPP) ROOT=$(ROOT) OPT=1
 
 install:
-	@make -C src ROOT=$(ROOT) OPT=1 install
+	@make -C src SMITHLAB_CPP=$(SMITHLAB_CPP) ROOT=$(ROOT) OPT=1 install
 
 clean:
-	@make -C src ROOT=$(ROOT) clean
+	@make -C src SMITHLAB_CPP=$(SMITHLAB_CPP) ROOT=$(ROOT) clean
 .PHONY: clean
 
 distclean: clean
