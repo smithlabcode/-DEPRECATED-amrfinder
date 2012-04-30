@@ -18,7 +18,7 @@
  */
 
 #include "Epiread.hpp"
-
+#include<limits>
 using std::vector;
 
 size_t
