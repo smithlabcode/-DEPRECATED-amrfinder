@@ -11,12 +11,9 @@ Andrew D Smith: andrewds@usc.edu
 
 SYSTEM REQUIREMENTS:
 ========================================================================
-The amrfinder software will only run on UNIX-like operating systems, and
-was developed on Linux systems. The amrfinder software requires a fairly
-recent C++ compiler (i.e. it must include tr1 headers). amrfinder has been
-compiled and tested on Linux and OS X operating systems using GCC v4.1
-or greater. Also, amrfinder will only run on 64-bit machines.
-
+The amrfinder software will only run on UNIX-type system with GNU Scientific
+Library (GSL, http://www/gmi/prg/software/gsl) and GNU Compiler Collection
+(GCC, http://gcc.gnu.org/). Also, amrfinder will only run on 64-bit machines.
 
 INSTALLATION:
 ========================================================================
