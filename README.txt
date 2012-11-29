@@ -1,4 +1,4 @@
-This is the README file for the first release of amrfinder version 1.
+This is the README file for the first release of amrfinder version 1.02.
 amrfinder is a program for identifying allele-specific DNA methylation
 from bisulfite short-read sequencing technology
 (such as Solexa/Illumina).
@@ -38,7 +38,8 @@ regions (AMRs), use the command:
 The output will appear in output.bed, and the output is in BED format
 (see the UCSC Genome Browser Help documentation for details of this
 format). Each line of the file indicates the location of an AMR in the 
-CpG numbering format. The input read file in a format called 'MappedRead',
+CpG numbering format. The directory including corresponding chromosomes (e.g. hg18) 
+should be indicated. The input read file in a format called 'MappedRead',
 which consists of 8 columns with the first 6 the same as in BED format and
 the last two columns being the sequence and quality score of the read.
 

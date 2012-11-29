@@ -146,7 +146,8 @@ main(int argc, const char **argv) {
     vector<string> chrom_names, chroms;
     GenomicRegion region;
     GenomicRegion chrom_region("chr0", 0, 0);
-    while (!in.eof() && in >> region) {
+    while (!in.eof()) {
+      in >> region;
       // get the correct chrom if it has changed
       if (!region.same_chrom(chrom_region)) {
 	const unordered_map<string, string>::const_iterator 
@@ -155,6 +156,7 @@ main(int argc, const char **argv) {
 	  throw SMITHLABException("could not find chrom: " + region.get_chrom());
 	chrom_names.clear();
 	chroms.clear();
+	cpgs.clear();
 	read_fasta_file(fn->second.c_str(), chrom_names, chroms);
 	if (chrom_names.size() > 1)
 	  throw SMITHLABException("multiple chroms/file: " + fn->second);

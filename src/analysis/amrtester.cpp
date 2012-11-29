@@ -116,7 +116,8 @@ main(int argc, const char **argv) {
     size_t n_regions  = regions.size();
     if (VERBOSE)
       cerr << "NUMBER OF REGIONS: " << n_regions << endl;
-    
+
+    vector<GenomicRegion> amrs;
     for (size_t i = 0; i < regions.size(); ++i) {
       if (PROGRESS) 
 	cerr << '\r' << percent(i, n_regions) << "%\r";
