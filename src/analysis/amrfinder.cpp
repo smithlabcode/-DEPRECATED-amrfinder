@@ -220,7 +220,7 @@ main(int argc, const char **argv) {
     opt_parse.add_opt("min-reads", 'm', "min reads per cpg", 
 		      false, min_reads_per_cpg);
     opt_parse.add_opt("chrom", 'c', "dir of chroms (.fa extn)", 
-		      false, chroms_dir);
+		      true, chroms_dir);
     opt_parse.add_opt("crit", 'C', "critical p-value cutoff (default: 0.01)", 
 		      false, critical_value);
     opt_parse.add_opt("bic", 'b', "use BIC to compare models", false, USE_BIC);
@@ -239,7 +239,7 @@ main(int argc, const char **argv) {
       return EXIT_SUCCESS;
     }
     if (opt_parse.option_missing()) {
-      cerr << opt_parse.option_missing_message() << endl;
+      cerr << opt_parse.option_missing_message() << " directory of chromosomes."<< endl;
       return EXIT_SUCCESS;
     }
     const string reads_file_name(leftover_args.back());
