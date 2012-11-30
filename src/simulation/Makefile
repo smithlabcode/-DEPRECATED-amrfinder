@@ -23,7 +23,7 @@ ifndef SMITHLAB_CPP
 $(error Must define SMITHLAB_CPP variable)
 endif
 
-PROGS = simasm simasmreal simasmseg simtest simasmreal_chr
+PROGS = simasm simasmreal simasmseg 
 
 SOURCES = $(wildcard *.cpp)
 

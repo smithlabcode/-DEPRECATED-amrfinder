@@ -22,7 +22,7 @@ ifndef SMITHLAB_CPP
 $(error Must define SMITHLAB_CPP variable)
 endif
 
-PROGS = methstates cpg2base base2cpg
+PROGS = methstates cpg2base
 
 SOURCES = $(wildcard *.cpp)
 
