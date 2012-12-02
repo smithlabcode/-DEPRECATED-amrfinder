@@ -479,7 +479,7 @@ EpireadIO::load_reads_next_chrom(string &chrom, vector<epiread> &the_reads) {
 
 void
 EpireadIO::convert_coordinates(vector<GenomicRegion> &amrs) const {
-  if(!EPIREAD_FORMAT){
+
     unordered_map<string, vector<size_t> >::const_iterator current_cpgs;
     for (size_t i = 0; i < amrs.size(); ++i) {
       if (i == 0 || !amrs[i].same_chrom(amrs[i-1])) {
@@ -490,5 +490,5 @@ EpireadIO::convert_coordinates(vector<GenomicRegion> &amrs) const {
       amrs[i].set_start(current_cpgs->second[amrs[i].get_start()]);
       amrs[i].set_end(current_cpgs->second[amrs[i].get_end()]);
     }
-  }
+
 }
