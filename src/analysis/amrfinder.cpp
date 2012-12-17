@@ -303,32 +303,36 @@ main(int argc, const char **argv) {
     const size_t windows_accepted = amrs.size();
     double fdr_cutoff = 0.0;
     
-    if (!USE_BIC) {
-      fdr_cutoff = get_fdr_cutoff(total_cpgs, amrs, critical_value);
-      eliminate_amrs_by_fdr(fdr_cutoff, amrs);
+    if(amrs.empty())
+	cerr << "No AMR is found. "<<endl;
+    else{
+    	if (!USE_BIC) {
+      		fdr_cutoff = get_fdr_cutoff(total_cpgs, amrs, critical_value);
+      		eliminate_amrs_by_fdr(fdr_cutoff, amrs);
+    	}
+    
+    	if (VERBOSE)
+	  cerr << "PROCESSED READS: " << total_reads_processed << endl
+	       << "TOTAL CPGS: " << total_cpgs << endl
+	       << "TESTED WINDOWS: " << windows_tested << endl
+	       << "AMR WINDOWS: " << windows_accepted << endl
+	       << "AMR/TESTED: " << (windows_accepted/
+				     static_cast<double>(windows_tested)) << endl
+	       << "FDR CUTOFF: " << fdr_cutoff << endl
+	       << "AMR AFTER FDR: " << amrs.size() << endl;
+	
+	collapse_amrs(amrs);
+	eio.convert_coordinates(amrs);
+	
+	if (VERBOSE)
+	  cerr << "MERGED AMRS: " << amrs.size() << endl;
+	
+	std::ofstream of;
+	if (!outfile.empty()) of.open(outfile.c_str());
+	std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+	copy(amrs.begin(), amrs.end(), 
+	     std::ostream_iterator<GenomicRegion>(out, "\n"));
     }
-    
-    if (VERBOSE)
-      cerr << "PROCESSED READS: " << total_reads_processed << endl
-	   << "TOTAL CPGS: " << total_cpgs << endl
-	   << "TESTED WINDOWS: " << windows_tested << endl
-	   << "AMR WINDOWS: " << windows_accepted << endl
-	   << "AMR/TESTED: " << (windows_accepted/
-				 static_cast<double>(windows_tested)) << endl
-	   << "FDR CUTOFF: " << fdr_cutoff << endl
-	   << "AMR AFTER FDR: " << amrs.size() << endl;
-    
-    collapse_amrs(amrs);
-    eio.convert_coordinates(amrs);
-    
-    if (VERBOSE)
-      cerr << "MERGED AMRS: " << amrs.size() << endl;
-    
-    std::ofstream of;
-    if (!outfile.empty()) of.open(outfile.c_str());
-    std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-    copy(amrs.begin(), amrs.end(), 
-	 std::ostream_iterator<GenomicRegion>(out, "\n"));
   }
   catch (const SMITHLABException &e) {
     cerr << e.what() << endl;
