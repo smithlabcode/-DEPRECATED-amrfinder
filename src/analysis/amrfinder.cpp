@@ -105,7 +105,7 @@ collapse_amrs(vector<GenomicRegion> &amrs) {
     if (amrs[j].same_chrom(amrs[i]) &&
 	// The +1 below is because intervals in terms of CpGs are
 	// inclusive
-        amrs[j].get_end() + 1 >= amrs[i].get_start()) {
+        amrs[j].get_end() + 1>= amrs[i].get_start()) {
       amrs[j].set_end(amrs[i].get_end());
     }
     else {
@@ -176,6 +176,24 @@ randomize_read_states(vector<epiread> &reads) {
   set_read_states(state_counts, reads);
 }
 
+static void
+merge_amrs(vector<GenomicRegion> &amrs,
+			const size_t gap_limit) {
+  size_t j = 0;
+  for (size_t i = 1; i < amrs.size(); ++i)
+    if (amrs[j].same_chrom(amrs[i]) &&
+	// check the distance between two amrs are greater than the gap limit
+        amrs[j].get_end() + gap_limit>= amrs[i].get_start()) {
+      amrs[j].set_end(amrs[i].get_end());
+    }
+    else {
+      ++j;
+      amrs[j] = amrs[i];
+    }
+  ++j;
+  amrs.erase(amrs.begin() + j, amrs.end());
+}
+
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
@@ -196,6 +214,7 @@ main(int argc, const char **argv) {
 
     size_t max_itr = 10;
     size_t cpg_window = 10;
+    size_t gap_limit=1000;
     double high_prob = 0.75, low_prob = 0.25;
 
     double min_reads_per_cpg = 1ul;
@@ -203,7 +222,7 @@ main(int argc, const char **argv) {
     bool PROGRESS = false;
 
     double critical_value = 0.01;
-    
+ 
     bool IGNORE_BALANCED_PARTITION_INFO = false;
     
     /****************** COMMAND LINE OPTIONS ********************/
@@ -219,6 +238,8 @@ main(int argc, const char **argv) {
     opt_parse.add_opt("window", 'w', "the window to slide", false, cpg_window);
     opt_parse.add_opt("min-reads", 'm', "min reads per cpg", 
 		      false, min_reads_per_cpg);
+    opt_parse.add_opt("gap_limit", 'l', "the minimum limit of the gap size between amrs in bp", 
+    		      false, gap_limit);
     opt_parse.add_opt("chrom", 'c', "dir of chroms (.fa extn)", 
 		      true, chroms_dir);
     opt_parse.add_opt("crit", 'C', "critical p-value cutoff (default: 0.01)", 
@@ -323,6 +344,7 @@ main(int argc, const char **argv) {
 	
 	collapse_amrs(amrs);
 	eio.convert_coordinates(amrs);
+	merge_amrs(amrs,gap_limit);
 	
 	if (VERBOSE)
 	  cerr << "MERGED AMRS: " << amrs.size() << endl;
