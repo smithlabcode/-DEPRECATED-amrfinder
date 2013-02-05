@@ -53,12 +53,6 @@ inline bool static
 is_singlend(const size_t flag) {return !is_pairend(flag);}
 
 inline bool static
-is_Trich(const size_t flag) {return flag & 0x40;}
-
-inline bool static
-is_Arich(const size_t flag) {return flag & 0x80;}
-
-inline bool static
 is_mapping_paired(const size_t flag) {return flag & 0x2;}
 
 inline bool static 
@@ -69,6 +63,9 @@ is_mapped(const size_t flag) {return !(is_unmapped(flag));}
 
 inline bool static
 is_revcomp(const size_t flag) {return flag & 0x10;}
+
+inline bool static
+is_mate1(const size_t flag) {return flag & 0x40;}
 
 void static
 apply_CIGAR(const string &seq, const string &qual,
@@ -120,17 +117,18 @@ apply_CIGAR(const string &seq, const string &qual,
 }
 
 inline static void
-get_mismatch(const string &mismatch_str, size_t &mismatch)
+get_mismatch(const string &align_score, size_t &mismatch)
 {
-    mismatch = atoi(mismatch_str.substr(5).c_str());
+    mismatch = atoi(align_score.substr(6).c_str());
 }
 
 inline static void
-get_strand(const string &strand_str, string &strand, string &bs_forward)
+get_strand(const size_t &flag, string &strand)
 {
-    strand = strand_str.substr(5, 1);
-    bs_forward = strand_str.substr(6, 1);
-    if (bs_forward == "-") strand = strand == "+" ? "-" : "+";
+	if(is_revcomp(flag))
+		strand="-";
+	else
+		strand="+";
 }
 
 
@@ -140,20 +138,16 @@ main(int argc, const char **argv)
     try 
     {
         string infile("/dev/stdin");
-        string Toutfile;
-        string Aoutfile("/dev/null");
+        string outfile;
 
         bool VERBOSE;
         
         /****************** COMMAND LINE OPTIONS ********************/
         OptionParser opt_parse(strip_path(argv[0]),
-                               "convert SAM output of BSMAP to MR format of RMAP"
+                               "convert SAM output of Bowtie to MR format of RMAP"
                                "");
-        opt_parse.add_opt("T-rich", 'T', "Trich reads Output file", 
-                          OptionParser::REQUIRED, Toutfile);
-        opt_parse.add_opt("A-rich", 'A',
-                          "Arich reads Output file (ignore for SE mapping)", 
-                          OptionParser::OPTIONAL, Aoutfile);
+        opt_parse.add_opt("outfile", 'o', "reads output file", 
+                          OptionParser::REQUIRED, outfile);
         opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
 
         vector<string> leftover_args;
@@ -177,8 +171,7 @@ main(int argc, const char **argv)
         /****************** END COMMAND LINE OPTIONS *****************/
 
         std::ifstream in(infile.c_str());
-        std::ofstream tout(Toutfile.c_str());
-        std::ofstream aout(Aoutfile.c_str());
+        std::ofstream out(outfile.c_str());
 
         
         string line;
@@ -186,95 +179,94 @@ main(int argc, const char **argv)
         while (std::getline(in, line))
         {
             string name, chrom, CIGAR, mate_name, seq,
-                qual, mismatch_str, strand_str;
+                qual, align_score;
 
             size_t flag, start, mapq_score, mate_start;
             int seg_len;
             std::istringstream iss(line);
-            if (iss >> name >> flag >> chrom >> start >> mapq_score >> CIGAR
-                >> mate_name >> mate_start >> seg_len >> seq >> qual
-                >> mismatch_str >> strand_str)
-            {
-                if (is_pairend(flag))
-                {
-                    assert(Aoutfile != "/dev/null" && aout.good());
-                    assert(!(flag & 0x4)); // only working with mapped reads
-                    --start; // SAM are 1-based
-
-                    size_t mismatch;
-                    get_mismatch(mismatch_str, mismatch);
-                
-                    string strand, bs_forward;
-                    get_strand(strand_str, strand, bs_forward);
-
-                    assert(is_Trich(flag) && bs_forward == "+"
-                           || is_Arich(flag) && bs_forward == "-");
-
-                    string new_seq, new_qual;
-                    apply_CIGAR(seq, qual, CIGAR, new_seq, new_qual);
-
-                    if (is_revcomp(flag))
-                    {
-                        revcomp_inplace(new_seq);
-                        std::reverse(new_qual.begin(), new_qual.end());
-                    }
-                
-                    if (is_Trich(flag))
-                    {
-                        tout << chrom << "\t" << start << "\t"
-                             << start + new_seq.length() << "\t"
-                             << (name + "/1") << "\t" << mismatch << "\t"
-                             << strand << "\t" << new_seq << "\t"
-                             << new_qual << "\t" << endl;
-                    }
-                    else
-                    {
-                        aout << chrom << "\t" << start << "\t"
-                             << start + new_seq.length() << "\t"
-                             << (name + "/2") << "\t" << mismatch << "\t"
-                             << strand << "\t" << new_seq << "\t"
-                             << new_qual << "\t" << endl;
-                    }
-                }
-                else 
-                {
-                    assert(!(flag & 0x4)); // only working with mapped reads
-                    --start; // SAM are 1-based
-
-                    size_t mismatch;
-                    get_mismatch(mismatch_str, mismatch);
-                
-                    string strand, bs_forward;
-                    get_strand(strand_str, strand, bs_forward);
-
-                    assert(bs_forward == "+");
-                    assert(is_revcomp(flag) == (strand != bs_forward));
-                
-                    if (is_revcomp(flag))
-                    {
-                        revcomp_inplace(seq);
-                        std::reverse(qual.begin(), qual.end());
-                    }
-                 
-                    string new_seq, new_qual;
-                    apply_CIGAR(seq, qual, CIGAR, new_seq, new_qual);
-                
-                    tout << chrom << "\t" << start << "\t"
-                         << start + new_seq.length() << "\t"
-                         << name << "\t" << mismatch << "\t"
-                         << strand << "\t" << new_seq << "\t"
-                         << new_qual << "\t" << endl;
-                }
+            iss >> name;
+            if(name.substr(0,1)!="@"){
+            	if (iss >> flag >> chrom >> start >> mapq_score >> CIGAR
+            			>> mate_name >> mate_start >> seg_len >> seq >> qual
+            			>> align_score)
+            	{
+					if (is_pairend(flag))
+					{
+						assert(out.good());
+						if(!(flag & 0x4)){ // only working with mapped reads
+							--start; // SAM are 1-based
+		
+							size_t mismatch;
+							get_mismatch(align_score, mismatch);
+						
+							string strand;
+							get_strand(flag, strand);
+	
+							string new_seq, new_qual;
+							apply_CIGAR(seq, qual, CIGAR, new_seq, new_qual);
+		
+							if (is_revcomp(flag))
+							{
+								revcomp_inplace(new_seq);
+								std::reverse(new_qual.begin(), new_qual.end());
+							}
+							
+							if (is_mate1(flag)){
+								out << chrom << "\t" << start << "\t"
+										<< start + new_seq.length() << "\t"
+										<< (name + "/1") << "\t" << mismatch << "\t"
+										<< strand << "\t" << new_seq << "\t"
+										<< new_qual << "\t" << endl;
+							}
+							else{
+								out << chrom << "\t" << start << "\t"
+										<< start + new_seq.length() << "\t"
+										<< (name + "/2") << "\t" << mismatch << "\t"
+										<< strand << "\t" << new_seq << "\t"
+										<< new_qual << "\t" << endl;
+							}
+								
+						}
+		
+					}
+					else 
+					{
+						if(!(flag & 0x4)){// only working with mapped reads
+							--start; // SAM are 1-based
+		
+							size_t mismatch;
+							get_mismatch(align_score, mismatch);
+								
+							string strand;
+							get_strand(flag, strand);
+						
+							if (is_revcomp(flag))
+							{
+								revcomp_inplace(seq);
+								std::reverse(qual.begin(), qual.end());
+							}
+						 
+							string new_seq, new_qual;
+							apply_CIGAR(seq, qual, CIGAR, new_seq, new_qual);
+						
+							out << chrom << "\t" << start << "\t"
+									<< start + new_seq.length() << "\t"
+									<< name << "\t" << mismatch << "\t"
+									<< strand << "\t" << new_seq << "\t"
+									<< new_qual << "\t" << endl;
+						}
+					}
+				}
+				else
+				{
+					cerr << "Line " << nline << ": " << line << endl;
+				}
             }
-            else
-            {
-                cerr << "Line " << nline << ": " << line << endl;
-            }
+            nline++;
         }
 
         in.close();
-        tout.close();
-        aout.close();
+        out.close();
     }
     catch (const SMITHLABException &e) 
     {
