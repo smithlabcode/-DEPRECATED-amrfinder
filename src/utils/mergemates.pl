@@ -35,7 +35,7 @@ MAIN:
     Getopt::Long::GetOptions(
         'h|help' =>  \$help,
         'man' =>  \$man,
-        'd=s' => \$input,  
+        'i=s' => \$input,  
         'o=s' => \$output,  
     );
 
@@ -60,6 +60,7 @@ MAIN:
 	my @names;
 	my @pre_names;
 	my $diff_chrom_count=0;
+	my $flag=1;
 	
 	$pre_seq = <INPUT>;
 	chomp($pre_seq);
@@ -70,8 +71,8 @@ MAIN:
 		@items = split(/[\t ]+/, $seq);
 		@names = split("/",$items[3]);
 		
-		if($names[0]==$pre_names[0]){
-			if($items[0]==$pre_items[0]){
+		if($names[0] eq $pre_names[0]){
+			if($items[0] eq $pre_items[0]){
 				if($items[1]<$pre_items[1]){
 					print OUTPUT "$items[0]\t$items[1]\t$pre_items[2]\t$names[0]\t0\t+\n";
 				}
@@ -82,20 +83,26 @@ MAIN:
 			else{
 				$diff_chrom_count++;
 			}
-			if($pre_seq = <INPUT>){
+			$flag=2;
+			if(defined($pre_seq = <INPUT>)){
 				chomp($pre_seq);
 				@pre_items = split(/[\t ]+/, $pre_seq);
 				@pre_names = split("/",$pre_items[3]);
+				$flag=1;
 			}
 		}
 		else{
-			print OUTPUT "$pre_seq\n";
+			print OUTPUT "$pre_items[0]\t$pre_items[1]\t$pre_items[2]\t$pre_items[3]\t$pre_items[4]\t$pre_items[5]\n";
 			$pre_seq=$seq;
 			@pre_items = split(/[\t ]+/, $pre_seq);
 			@pre_names = split("/",$pre_items[3]);
+			$flag=1;
 		}
 	}
-	print "Mismapped mates to different chromosomes: $diff_chrom_count";
+	if($flag==1){
+		print OUTPUT "$pre_items[0]\t$pre_items[1]\t$pre_items[2]\t$pre_items[3]\t$pre_items[4]\t$pre_items[5]\n";
+	}
+	print "Mismapped mates to different chromosomes: $diff_chrom_count\n";
 	close(INPUT);
 	close(OUTPUT); 
 }
