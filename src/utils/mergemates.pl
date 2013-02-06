@@ -72,18 +72,21 @@ MAIN:
 		
 		if($names[0]==$pre_names[0]){
 			if($items[0]==$pre_items[0]){
-				if($items[1]<$pre_items[1])
+				if($items[1]<$pre_items[1]){
 					print OUTPUT "$items[0]\t$items[1]\t$pre_items[2]\t$names[0]\t0\t+\n";
-				else
+				}
+				else{
 					print OUTPUT "$items[0]\t$pre_items[1]\t$items[2]\t$names[0]\t0\t+\n";
+				}
 			}
 			else{
 				$diff_chrom_count++;
 			}
-			$pre_seq = <INPUT>;
-			chomp($pre_seq);
-			@pre_items = split(/[\t ]+/, $pre_seq);
-			@pre_names = split("/",$pre_items[3]);
+			if($pre_seq = <INPUT>){
+				chomp($pre_seq);
+				@pre_items = split(/[\t ]+/, $pre_seq);
+				@pre_names = split("/",$pre_items[3]);
+			}
 		}
 		else{
 			print OUTPUT "$pre_seq\n";
@@ -92,6 +95,7 @@ MAIN:
 			@pre_names = split("/",$pre_items[3]);
 		}
 	}
+	print "Mismapped mates to different chromosomes: $diff_chrom_count";
 	close(INPUT);
 	close(OUTPUT); 
 }
