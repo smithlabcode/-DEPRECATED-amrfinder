@@ -23,7 +23,7 @@ use warnings;
 use IO::File;
 use Getopt::Long ();    #   Resist name-space pollution!
 use Pod::Usage ();      #   Ditto!
-
+use File::Basename;
 
 MAIN:
 {
@@ -62,6 +62,10 @@ MAIN:
 	my $diff_chrom_count=0;
 	my $flag=1;
 	
+	my $frag=basename($output,".bed")."_fragLen.txt";
+	open(FRAG,">$frag")||die"Can not open the fragment length file.\n";
+	my $fragLen;
+	
 	$pre_seq = <INPUT>;
 	chomp($pre_seq);
 	@pre_items = split(/[\t ]+/, $pre_seq);
@@ -75,9 +79,13 @@ MAIN:
 			if($items[0] eq $pre_items[0]){
 				if($items[1]<$pre_items[1]){
 					print OUTPUT "$items[0]\t$items[1]\t$pre_items[2]\t$names[0]\t0\t+\n";
+					$fragLen = $pre_items[2]-$items[1];
+					print FRAG "$fragLen\n";
 				}
 				else{
 					print OUTPUT "$items[0]\t$pre_items[1]\t$items[2]\t$names[0]\t0\t+\n";
+					$fragLen = $items[2]-$pre_items[1];
+					print FRAG "$fragLen\n";
 				}
 			}
 			else{
@@ -93,6 +101,8 @@ MAIN:
 		}
 		else{
 			print OUTPUT "$pre_items[0]\t$pre_items[1]\t$pre_items[2]\t$pre_items[3]\t$pre_items[4]\t$pre_items[5]\n";
+			$fragLen = $pre_items[2]-$pre_items[1];
+			print FRAG "$fragLen\n";
 			$pre_seq=$seq;
 			@pre_items = split(/[\t ]+/, $pre_seq);
 			@pre_names = split("/",$pre_items[3]);
@@ -101,9 +111,12 @@ MAIN:
 	}
 	if($flag==1){
 		print OUTPUT "$pre_items[0]\t$pre_items[1]\t$pre_items[2]\t$pre_items[3]\t$pre_items[4]\t$pre_items[5]\n";
+		$fragLen = $pre_items[2]-$pre_items[1];
+		print FRAG "$fragLen\n";
 	}
 	print "Mismapped mates to different chromosomes: $diff_chrom_count\n";
 	close(INPUT);
 	close(OUTPUT); 
+	close(FRAG);
 }
 
