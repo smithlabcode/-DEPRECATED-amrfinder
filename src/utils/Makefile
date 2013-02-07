@@ -22,7 +22,7 @@ ifndef SMITHLAB_CPP
 $(error Must define SMITHLAB_CPP variable)
 endif
 
-PROGS = methstates cpg2base sam2mr
+PROGS = methstates cpg2base sam2mr coverage
 
 SOURCES = $(wildcard *.cpp)
 
@@ -51,7 +51,7 @@ endif
 all: $(PROGS)
 
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, GenomicRegion.o smithlab_os.o \
-	smithlab_utils.o OptionParser.o MappedRead.o)
+	smithlab_utils.o OptionParser.o MappedRead.o FileIterator.o)
 
 %.o: %.cpp %.hpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(INCLUDEARGS)
