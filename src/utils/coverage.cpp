@@ -36,7 +36,6 @@
 #include "QualityScore.hpp"
 
 #include "FileIterator.hpp"
-#include "MappedRead.hpp"
 
 using std::tr1::unordered_map;
 
@@ -50,11 +49,11 @@ using std::ofstream;
 
 
 static void
-add_contribution(const size_t offset, const MappedRead &r,
+add_contribution(const size_t offset, const GenomicRegion &r,
 		   size_t &count) {  
-    const size_t position = offset - r.r.get_start();
+    const size_t position = offset - r.get_start();
     //    assert(position < r.seq.length());
-    if (position >= r.seq.length())
+    if (position >= r.get_width())
       return;//throw SMITHLABException("ERROR: Reads must be sorted by chromosome and end position.");
 
     ++count;
@@ -64,24 +63,24 @@ add_contribution(const size_t offset, const MappedRead &r,
 ////////////////////////////////////////////////////////////////////////
 
 static bool
-precedes(const MappedRead &r, const size_t offset) {
-  return r.r.get_end() <= offset;
+precedes(const GenomicRegion &r, const size_t offset) {
+  return r.get_end() <= offset;
 }
 
 
 static bool
-succeeds(const MappedRead &r, const size_t offset) {
-  return r.r.get_start() > offset;
+succeeds(const GenomicRegion &r, const size_t offset) {
+  return r.get_start() > offset;
 }
 
 
 static void
 advance(const size_t first, const size_t last,
 		const GenomicRegion &chrom_region, 
-		FileIterator<MappedRead> &regions,
+		FileIterator<GenomicRegion> &regions,
         const size_t max_length) {
   while (regions.last_is_good() && 
-		 chrom_region.same_chrom(regions.get_last()->r) &&
+		 chrom_region.same_chrom(*regions.get_last()) &&
 		 !succeeds(*regions.get_last(), last+max_length)) {
 	  	 	 regions.increment_last();
   	  }
@@ -89,7 +88,7 @@ advance(const size_t first, const size_t last,
   //   if (regions.last_is_good() != reads.last_is_good())
   //     throw SMITHLABException("read and map files seem out of sync");
   while (regions.first_is_good() && 
-	 chrom_region.same_chrom(regions.get_first()->r) &&
+	 chrom_region.same_chrom(*regions.get_first()) &&
 	 precedes(*regions.get_first(), first)) {
     regions.increment_first();
   }
@@ -100,77 +99,63 @@ advance(const size_t first, const size_t last,
 
 
 static void
-scan_chromosome(const string &chrom, const GenomicRegion &chrom_region,
-				FileIterator<MappedRead> &regions, 
+scan_chromosome(const size_t &chrom_len, const GenomicRegion &chrom_region,
+				FileIterator<GenomicRegion> &regions, 
 				std::ostream &out,
                 const size_t max_length) {
   
   const string chrom_name(chrom_region.get_chrom());
   size_t i = 0; 
-  size_t chrom_len = chrom.length();
   for (i = 0; i < chrom_len - 1 && regions.first_is_good(); ++i) {
 	  advance(i, i, chrom_region, regions, max_length);
 	  size_t count = 0;
-      for (vector<MappedRead>::const_iterator j(regions.get_first());
+      for (vector<GenomicRegion>::const_iterator j(regions.get_first());
     		  j != regions.get_last(); ++j)
     	  add_contribution(i, *j, count);
-      out << chrom_name << "\t" << i << "\t+\t"  
+      if(count>0)
+    	  out << chrom_name << "\t" << i << "\t"  
     		  << i+1 << "\t" << count << endl;
   }
 }
 
 
 static void
-identify_chromosomes(const bool VERBOSE, const string chrom_file,
-		     const string fasta_suffix, vector<string> &chrom_files) {
-  if (VERBOSE)
-    cerr << "[IDENTIFYING CHROMS] ";
-  if (isdir(chrom_file.c_str())) 
-    read_dir(chrom_file, fasta_suffix, chrom_files);
-  else chrom_files.push_back(chrom_file);
-  if (VERBOSE) {
-    cerr << "[DONE]" << endl 
-	 << "chromosome files found (approx size):" << endl;
-    for (vector<string>::const_iterator i = chrom_files.begin();
-	 i != chrom_files.end(); ++i)
-      cerr << *i << " (" << roundf(get_filesize(*i)/1e06) << "Mbp)" << endl;
-    cerr << endl;
-  }
+read_chrom_lengths(const string chrom_file,
+					vector<string> &chrom_names,
+					vector<size_t> &chrom_lengths) {
+	std::ifstream in(chrom_file.c_str());
+	string line, name;
+	size_t length;
+	while (std::getline(in, line))
+	{
+		std::istringstream iss(line);
+		iss >> name >> length;
+		chrom_names.push_back(name);
+		chrom_lengths.push_back(length);
+	}
 }
 
 
 static void
 advance_chromosome(const GenomicRegion &chrom_region, 
-		   FileIterator<MappedRead> &regions) {
+		   FileIterator<GenomicRegion> &regions) {
 
   while (regions.last_is_good() && 
-	 (regions.get_last()->r < chrom_region)) {
+	 (*regions.get_last() < chrom_region)) {
     assert(regions.last_is_good());
     regions.increment_last();
   }
   while (regions.first_is_good() && 
-	 (regions.get_first()->r < chrom_region))
+	 (*regions.get_first() < chrom_region))
     regions.increment_first();
 }
 
 
 static void
-fix_chrom_names(vector<string> &chrom_names)
-{
-  // make sure the chrom names don't have spaces
-
-  for (size_t i = 0; i < chrom_names.size(); ++i) {
-    const size_t chr_name_end = chrom_names[i].find_first_of(" \t");
-    if (chr_name_end != string::npos)
-      chrom_names[i].erase(chr_name_end);
-  }
-}
-
-
-static void
 scan_chroms(const bool VERBOSE,
-			const string &outfile, const vector<string> &chrom_files, 
-			FileIterator<MappedRead> &regions,
+			const string &outfile, const vector<string> &chrom_names,
+			const vector<size_t> &chrom_lengths,
+			FileIterator<GenomicRegion> &regions,
             const size_t max_length) {
 
   // Get the output stream
@@ -178,22 +163,14 @@ scan_chroms(const bool VERBOSE,
   if (!outfile.empty()) of.open(outfile.c_str());
   std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   
-  for (size_t i = 0; i < chrom_files.size(); ++i) {
-    const string fn(strip_path_and_suffix(chrom_files[i]));
-    if (VERBOSE)
-      cerr << "[LOADING CHROM FILE=" << fn << "]";
-    vector<string> chrom_names, chroms;
-    read_fasta_file(chrom_files[i].c_str(), chrom_names, chroms);
-    fix_chrom_names(chrom_names);
-    for (size_t j = 0; j < chroms.size(); ++j) {
-      if (VERBOSE) cerr << "[SCANNING=" << chrom_names[j] << "]";
+  for (size_t i = 0; i < chrom_names.size(); ++i) {
+      if (VERBOSE) cerr << "[SCANNING=" << chrom_names[i] << "]";
       //TODO: WHAT HAPPENS IF A CHROM IS MISSING??
-      const GenomicRegion chrom_region(chrom_names[j], 0, 0);
+      const GenomicRegion chrom_region(chrom_names[i], 0, 0);
       advance_chromosome(chrom_region, regions);
      
-      scan_chromosome(chroms[j], chrom_region,
+      scan_chromosome(chrom_lengths[i], chrom_region,
 			regions, out, max_length);
-    }
     if (VERBOSE) cerr << " [DONE]" << endl;
   }
 }
@@ -221,7 +198,7 @@ main(int argc, const char **argv) {
 			   "<mapped-reads>");
     opt_parse.add_opt("output", 'o', "Name of output file (default: stdout)", 
 		      false, outfile);
-    opt_parse.add_opt("chrom", 'c', "file or dir of chroms (FASTA format; .fa suffix)",
+    opt_parse.add_opt("chrom", 'c', "file of chrom lengths",
 		      true , chrom_file);
     opt_parse.add_opt("max_length", 'L', "The maximal read length of the input file (default 10000)",
                       false , max_length);
@@ -247,12 +224,12 @@ main(int argc, const char **argv) {
     }
     const string mapped_reads_file = leftover_args.front();
     /****************** END COMMAND LINE OPTIONS *****************/    
-    vector<string> chrom_files;
-    identify_chromosomes(VERBOSE, chrom_file, fasta_suffix, chrom_files);
-    sort(chrom_files.begin(), chrom_files.end());
+    vector<string> chrom_names;
+    vector<size_t> chrom_lengths;
+    read_chrom_lengths(chrom_file,chrom_names, chrom_lengths);
     
-    FileIterator<MappedRead> regions(mapped_reads_file, BUFFER_SIZE);
-    scan_chroms(VERBOSE, outfile, chrom_files, regions, max_length);
+    FileIterator<GenomicRegion> regions(mapped_reads_file, BUFFER_SIZE);
+    scan_chroms(VERBOSE, outfile, chrom_names, chrom_lengths, regions, max_length);
   }
   catch (const SMITHLABException &e) {
     cerr << e.what() << endl;
