@@ -19,3 +19,11 @@ The following command converts the locations from numbering order of CpGs to
 genomic location:
 
 $$ ./cpg2base -o GNAS_region.bed -c hg18 GNAS_cpg.bed
+
+
+
+sam2mr
+============================================================================
+The following command converts the mapped reads from SAM format to MR format:
+
+$$ ./sam2mr -o ex1.mr ex1.sam
