@@ -2,8 +2,9 @@
  *    Copyright (C) 2009 University of Southern California and
  *                       Andrew D. Smith
  *                       Song Qiang
+ *                       Fang Fang
  *
- *    Authors: Song Qiang
+ *    Authors: Song Qiang, Fang Fang
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -119,7 +120,7 @@ apply_CIGAR(const string &seq, const string &qual,
 inline static void
 get_mismatch(const string &align_score, size_t &mismatch)
 {
-    mismatch = atoi(align_score.substr(6).c_str());
+    mismatch = atoi(align_score.substr(5).c_str());
 }
 
 inline static void
@@ -179,7 +180,7 @@ main(int argc, const char **argv)
         while (std::getline(in, line))
         {
             string name, chrom, CIGAR, mate_name, seq,
-                qual, align_score;
+                qual, MF, Aq, align_score;
 
             size_t flag, start, mapq_score, mate_start;
             int seg_len;
@@ -187,8 +188,8 @@ main(int argc, const char **argv)
             iss >> name;
             if(name.substr(0,1)!="@"){
             	if (iss >> flag >> chrom >> start >> mapq_score >> CIGAR
-            			>> mate_name >> mate_start >> seg_len >> seq >> qual
-            			>> align_score)
+            			>> mate_name >> mate_start >> seg_len >> seq >> qual 
+            			>> MF >> Aq >> align_score)
             	{
 					if (is_pairend(flag))
 					{
