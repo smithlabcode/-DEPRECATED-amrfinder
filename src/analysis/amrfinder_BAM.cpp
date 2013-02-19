@@ -1,4 +1,4 @@
-/*    amrfinder: A program for resolving epialleles in a sliding
+/*    amrfinder_BAM: A program for resolving epialleles in a sliding
  *    window along a chromosome.
  *
  *    Copyright (C) 2011 University of Southern California and
@@ -30,13 +30,22 @@
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "EpireadStats.hpp"
-#include "EpireadIO.hpp"
+#include "BAMIO.hpp"
 
 using std::string;
 using std::vector;
 using std::cerr;
 using std::endl;
 
+
+#include "api/BamReader.h"
+#include "api/BamAlignment.h"
+
+using BamTools::BamAlignment;
+using BamTools::SamHeader;
+using BamTools::RefVector;
+using BamTools::BamReader;
+using BamTools::RefData;
 
 static double
 get_fdr_cutoff(const size_t n_tests, const vector<GenomicRegion> &amrs, 
@@ -139,7 +148,7 @@ add_amr(const string &chrom_name, const size_t start_cpg,
 /////
 /////   CODE FOR RANDOMIZING THE READS TO GET EXPECTED NUMBER OF
 /////   IDENTIFIED AMRS
-/////
+/////all_reads_for_chrom[j].
 
 static void
 set_read_states(vector<vector<char> > &state_counts, vector<epiread> &reads) {
@@ -268,8 +277,16 @@ main(int argc, const char **argv) {
 
     const size_t min_reads_per_window = cpg_window*min_reads_per_cpg;
     
-    EpireadIO eio(reads_file_name, VERBOSE, EPIREAD_FORMAT, chroms_dir);
+    BAMIO eio(reads_file_name, VERBOSE, chroms_dir);
     
+    BamReader reader;
+    reader.Open(reads_file_name);
+    
+    // Get header and reference
+    string header = reader.GetHeaderText();
+    RefVector refs = reader.GetReferenceData();
+    reader.Close(); 
+
     vector<GenomicRegion> amrs;
     vector<epiread> all_reads_for_chrom;
     string chrom_name;
@@ -277,9 +294,14 @@ main(int argc, const char **argv) {
     size_t total_reads_processed = 0;
     size_t windows_tested = 0;
     size_t total_cpgs = 0;
-    while (eio.load_reads_next_chrom(chrom_name, all_reads_for_chrom)) {
-      total_reads_processed += all_reads_for_chrom.size();
-
+    for (size_t refID = 0; refID < refs.size(); ++refID){
+    	eio.load_reads_next_chrom(refID, chrom_name, all_reads_for_chrom);
+    	total_reads_processed += all_reads_for_chrom.size();
+    	
+    	for(size_t j=0;j<all_reads_for_chrom.size();++j){
+    		cerr << chrom_name << all_reads_for_chrom[j].pos << all_reads_for_chrom[j].seq << endl;
+    	}
+/*
       const size_t chrom_cpgs = get_n_cpgs(all_reads_for_chrom);
       total_cpgs += chrom_cpgs;
       if (VERBOSE)
@@ -318,10 +340,10 @@ main(int argc, const char **argv) {
 	}
       }
       if (PROGRESS)
-	cerr << '\r' << chrom_name << " 100%" << endl;
+	cerr << '\r' << chrom_name << " 100%" << endl;*/
     }
     
-    const size_t windows_accepted = amrs.size();
+    /*const size_t windows_accepted = amrs.size();
     double fdr_cutoff = 0.0;
     
     if(amrs.empty())
@@ -354,7 +376,7 @@ main(int argc, const char **argv) {
 	std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
 	copy(amrs.begin(), amrs.end(), 
 	     std::ostream_iterator<GenomicRegion>(out, "\n"));
-    }
+    }*/
   }
   catch (const SMITHLABException &e) {
     cerr << e.what() << endl;
