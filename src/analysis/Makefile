@@ -60,7 +60,9 @@ all: $(PROGS)
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, GenomicRegion.o smithlab_os.o \
 	smithlab_utils.o OptionParser.o MappedRead.o)
 
-amrfinder amrtester amrrefiner amrfinder_deltaM amrfinder_BAM: BAMIO.o EpireadStats.o EpireadIO.o Epiread.o
+amrfinder amrtester amrrefiner amrfinder_deltaM amrfinder_BAM: EpireadStats.o EpireadIO.o Epiread.o
+
+amrfinder_BAM: BAMIO.o
 
 %.o: %.cpp %.hpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(INCLUDEARGS)

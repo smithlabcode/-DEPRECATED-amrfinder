@@ -218,7 +218,6 @@ main(int argc, const char **argv) {
     bool VERBOSE = false;
     string outfile;
     string chroms_dir;
-    bool EPIREAD_FORMAT = false;
     bool USE_BIC = false;
 
     size_t max_itr = 10;
@@ -242,8 +241,6 @@ main(int argc, const char **argv) {
     opt_parse.add_opt("no-bal", 'g', "ignore balanced partition info", 
 		      false, IGNORE_BALANCED_PARTITION_INFO);
     opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
-    opt_parse.add_opt("epiread", 'E', "reads in epiread format", 
-		      false, EPIREAD_FORMAT);
     opt_parse.add_opt("window", 'w', "the window to slide", false, cpg_window);
     opt_parse.add_opt("min-reads", 'm', "min reads per cpg", 
 		      false, min_reads_per_cpg);
@@ -297,11 +294,7 @@ main(int argc, const char **argv) {
     for (size_t refID = 0; refID < refs.size(); ++refID){
     	eio.load_reads_next_chrom(refID, chrom_name, all_reads_for_chrom);
     	total_reads_processed += all_reads_for_chrom.size();
-    	
-    	for(size_t j=0;j<all_reads_for_chrom.size();++j){
-    		cerr << chrom_name << all_reads_for_chrom[j].pos << all_reads_for_chrom[j].seq << endl;
-    	}
-/*
+    
       const size_t chrom_cpgs = get_n_cpgs(all_reads_for_chrom);
       total_cpgs += chrom_cpgs;
       if (VERBOSE)
@@ -340,10 +333,10 @@ main(int argc, const char **argv) {
 	}
       }
       if (PROGRESS)
-	cerr << '\r' << chrom_name << " 100%" << endl;*/
+	cerr << '\r' << chrom_name << " 100%" << endl;
     }
     
-    /*const size_t windows_accepted = amrs.size();
+    const size_t windows_accepted = amrs.size();
     double fdr_cutoff = 0.0;
     
     if(amrs.empty())
@@ -376,7 +369,7 @@ main(int argc, const char **argv) {
 	std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
 	copy(amrs.begin(), amrs.end(), 
 	     std::ostream_iterator<GenomicRegion>(out, "\n"));
-    }*/
+    }
   }
   catch (const SMITHLABException &e) {
     cerr << e.what() << endl;

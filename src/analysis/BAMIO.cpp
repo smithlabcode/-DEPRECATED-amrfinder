@@ -421,3 +421,18 @@ BAMIO::load_reads_next_chrom(size_t &refID, string &chrom, vector<epiread> &the_
 	    
 	if (the_reads.empty()) return false;
 }
+
+
+void
+BAMIO::convert_coordinates(vector<GenomicRegion> &amrs) const {
+    unordered_map<string, vector<size_t> >::const_iterator current_cpgs;
+    for (size_t i = 0; i < amrs.size(); ++i) {
+      if (i == 0 || !amrs[i].same_chrom(amrs[i-1])) {
+	current_cpgs = cpg_rev_lookup.find(amrs[i].get_chrom());
+	assert(current_cpgs != cpg_rev_lookup.end());
+      }
+      assert(current_cpgs->second.size() > amrs[i].get_end());
+      amrs[i].set_start(current_cpgs->second[amrs[i].get_start()]);
+      amrs[i].set_end(current_cpgs->second[amrs[i].get_end()]);
+    }
+}
