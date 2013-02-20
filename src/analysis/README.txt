@@ -13,6 +13,8 @@ two likelihood models. 'c' indicates the chromosome directory. The output in
 p-value from likelihood ratio test of the two models (without '-b') or the
 difference of the BIC values of the two models (with '-b').
 
+amrfinder_BAM is specially designed to take BAM input files. It is required to intall the "BAMTOOLS"(https://github.com/pezmaster31/bamtools) to use the program.
+
 amrrefiner
 ============================================================================
 The following command detects AMRs with accurate boundaires in several genomic

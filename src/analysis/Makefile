@@ -23,7 +23,7 @@ ifndef SMITHLAB_CPP
 $(error Must define SMITHLAB_CPP variable)
 endif
 
-PROGS = amrfinder amrtester amrrefiner amrfinder_deltaM amrfinder_BAM
+PROGS = amrfinder amrtester amrrefiner amrfinder_BAM
 
 SOURCES = $(wildcard *.cpp)
 
@@ -60,7 +60,7 @@ all: $(PROGS)
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, GenomicRegion.o smithlab_os.o \
 	smithlab_utils.o OptionParser.o MappedRead.o)
 
-amrfinder amrtester amrrefiner amrfinder_deltaM amrfinder_BAM: EpireadStats.o EpireadIO.o Epiread.o
+amrfinder amrtester amrrefiner amrfinder_BAM: EpireadStats.o EpireadIO.o Epiread.o
 
 amrfinder_BAM: BAMIO.o
 
