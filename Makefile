@@ -23,6 +23,11 @@
 ROOT = $(shell pwd)
 SMITHLAB_CPP = $(shell pwd)/src/smithlab_cpp
 
+ifndef BAMTOOLS_ROOT
+$(error Must define BAMTOOLS_ROOT variable)
+endif
+
+
 BINDIR = $(ROOT)/bin
 
 all:
