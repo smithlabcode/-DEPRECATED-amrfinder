@@ -1,4 +1,4 @@
-/*    amrfinder_BAM: A program for resolving epialleles in a sliding
+/*    amrfinder_deltaM: A program for resolving epialleles in a sliding
  *    window along a chromosome.
  *
  *    Copyright (C) 2011 University of Southern California and
@@ -23,29 +23,24 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <sstream>
+#include <fstream>
 #include <iomanip>
 #include <numeric>
+
+#include <gsl/gsl_sf.h>
+#include <gsl/gsl_cdf.h>
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "EpireadStats.hpp"
-#include "BAMIO.hpp"
+#include "EpireadIO.hpp"
 
 using std::string;
 using std::vector;
 using std::cerr;
 using std::endl;
-
-
-#include "api/BamReader.h"
-#include "api/BamAlignment.h"
-
-using BamTools::BamAlignment;
-using BamTools::SamHeader;
-using BamTools::RefVector;
-using BamTools::BamReader;
-using BamTools::RefData;
 
 static double
 get_fdr_cutoff(const size_t n_tests, const vector<GenomicRegion> &amrs, 
@@ -114,7 +109,7 @@ collapse_amrs(vector<GenomicRegion> &amrs) {
     if (amrs[j].same_chrom(amrs[i]) &&
 	// The +1 below is because intervals in terms of CpGs are
 	// inclusive
-        amrs[j].get_end() + 1>= amrs[i].get_start()) {
+        amrs[j].get_end() + 1 >= amrs[i].get_start()) {
       amrs[j].set_end(amrs[i].get_end());
     }
     else {
@@ -127,17 +122,21 @@ collapse_amrs(vector<GenomicRegion> &amrs) {
 
 
 static string
-get_amr_name(const size_t x, const size_t y) {
+get_amr_name(const size_t x, const size_t y, 
+	     const double low_prob, const double high_prob) {
   static const string name_label("AMR");
-  return name_label + toa(x) + ":" + toa(y);
+  std::ostringstream strs;
+  strs << name_label << x << ":" << y << ":" << low_prob << ":" << high_prob;
+  return strs.str();
 }
 
 static void
 add_amr(const string &chrom_name, const size_t start_cpg, 
 	const size_t cpg_window, const vector<epiread> &reads, 
-	const double score, vector<GenomicRegion> &amrs) {
+	const double score, vector<GenomicRegion> &amrs,
+	const double low_prob, const double high_prob) {
   const size_t end_cpg = start_cpg + cpg_window - 1;
-  const string amr_name(get_amr_name(amrs.size(), reads.size()));
+  const string amr_name(get_amr_name(amrs.size(), reads.size(), low_prob, high_prob));
   amrs.push_back(GenomicRegion(chrom_name, start_cpg, end_cpg,
 			       amr_name, score, '+'));
 }
@@ -148,7 +147,7 @@ add_amr(const string &chrom_name, const size_t start_cpg,
 /////
 /////   CODE FOR RANDOMIZING THE READS TO GET EXPECTED NUMBER OF
 /////   IDENTIFIED AMRS
-/////all_reads_for_chrom[j].
+/////
 
 static void
 set_read_states(vector<vector<char> > &state_counts, vector<epiread> &reads) {
@@ -185,23 +184,39 @@ randomize_read_states(vector<epiread> &reads) {
   set_read_states(state_counts, reads);
 }
 
-static void
-merge_amrs(vector<GenomicRegion> &amrs,
-			const size_t gap_limit) {
-  size_t j = 0;
-  for (size_t i = 1; i < amrs.size(); ++i)
-    if (amrs[j].same_chrom(amrs[i]) &&
-	// check the distance between two amrs are greater than the gap limit
-        amrs[j].get_end() + gap_limit>= amrs[i].get_start()) {
-      amrs[j].set_end(amrs[i].get_end());
-    }
-    else {
-      ++j;
-      amrs[j] = amrs[i];
-    }
-  ++j;
-  amrs.erase(amrs.begin() + j, amrs.end());
+double
+test_asm_lrt3(const size_t max_itr, double &low_prob, double &high_prob,
+              vector<epiread> reads) {
+
+  adjust_read_offsets(reads);
+  const size_t n_cpgs = get_n_cpgs(reads);
+
+  // try a single epi-allele
+  vector<double> a0(n_cpgs, 0.5);
+  const double single_score = fit_single_epiallele(reads, a0);
+
+  // initialize the pair epi-alleles and indicators, and do the actual
+  // computation to infer alleles
+  vector<double> a1(n_cpgs, low_prob), a2(n_cpgs, high_prob), indicators;
+  resolve_epialleles(max_itr, reads, indicators, a1, a2);
+
+  low_prob = accumulate(a1.begin(),a1.end(),0.0)/n_cpgs;
+  high_prob = accumulate(a2.begin(),a2.end(),0.0)/n_cpgs;
+
+  const double indic_sum =
+    std::accumulate(indicators.begin(), indicators.end(), 0.0);
+
+  const double log_likelihood_pair = log_likelihood(reads, indicators, a1, a2)
+    - gsl_sf_lnbeta(indic_sum, reads.size() - indic_sum)
+    + reads.size()*log(0.5);
+  const size_t df = n_cpgs + reads.size();
+
+
+  const double llr_stat = -2*(single_score - log_likelihood_pair);
+  const double p_value = 1.0 - gsl_cdf_chisq_P(llr_stat, df);
+  return p_value;
 }
+
 
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
@@ -218,11 +233,11 @@ main(int argc, const char **argv) {
     bool VERBOSE = false;
     string outfile;
     string chroms_dir;
+    bool EPIREAD_FORMAT = false;
     bool USE_BIC = false;
 
     size_t max_itr = 10;
     size_t cpg_window = 10;
-    size_t gap_limit=1000;
     double high_prob = 0.75, low_prob = 0.25;
 
     double min_reads_per_cpg = 1ul;
@@ -230,7 +245,7 @@ main(int argc, const char **argv) {
     bool PROGRESS = false;
 
     double critical_value = 0.01;
- 
+    
     bool IGNORE_BALANCED_PARTITION_INFO = false;
     
     /****************** COMMAND LINE OPTIONS ********************/
@@ -241,11 +256,11 @@ main(int argc, const char **argv) {
     opt_parse.add_opt("no-bal", 'g', "ignore balanced partition info", 
 		      false, IGNORE_BALANCED_PARTITION_INFO);
     opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
+    opt_parse.add_opt("epiread", 'E', "reads in epiread format", 
+		      false, EPIREAD_FORMAT);
     opt_parse.add_opt("window", 'w', "the window to slide", false, cpg_window);
     opt_parse.add_opt("min-reads", 'm', "min reads per cpg", 
 		      false, min_reads_per_cpg);
-    opt_parse.add_opt("gap_limit", 'l', "the minimum limit of the gap size between amrs in bp", 
-    		      false, gap_limit);
     opt_parse.add_opt("chrom", 'c', "dir of chroms (.fa extn)", 
 		      true, chroms_dir);
     opt_parse.add_opt("crit", 'C', "critical p-value cutoff (default: 0.01)", 
@@ -274,16 +289,8 @@ main(int argc, const char **argv) {
 
     const size_t min_reads_per_window = cpg_window*min_reads_per_cpg;
     
-    BAMIO eio(reads_file_name, VERBOSE, chroms_dir);
+    EpireadIO eio(reads_file_name, VERBOSE, EPIREAD_FORMAT, chroms_dir);
     
-    BamReader reader;
-    reader.Open(reads_file_name);
-    
-    // Get header and reference
-    string header = reader.GetHeaderText();
-    RefVector refs = reader.GetReferenceData();
-    reader.Close(); 
-
     vector<GenomicRegion> amrs;
     vector<epiread> all_reads_for_chrom;
     string chrom_name;
@@ -291,86 +298,81 @@ main(int argc, const char **argv) {
     size_t total_reads_processed = 0;
     size_t windows_tested = 0;
     size_t total_cpgs = 0;
-    for (size_t refID = 0; refID < refs.size(); ++refID){
-    	if(eio.load_reads_next_chrom(refID, chrom_name, all_reads_for_chrom)){
-    		total_reads_processed += all_reads_for_chrom.size();
-    
-    		const size_t chrom_cpgs = get_n_cpgs(all_reads_for_chrom);
-    		total_cpgs += chrom_cpgs;
-    		if (VERBOSE)
-    			cerr << "PROCESSING: " << chrom_name << endl
-    			<< "INFORMATIVE READS: " << all_reads_for_chrom.size() << endl
-    			<< "CHROM CPGS: " << chrom_cpgs << endl;
+    while (eio.load_reads_next_chrom(chrom_name, all_reads_for_chrom)) {
+      total_reads_processed += all_reads_for_chrom.size();
+
+      const size_t chrom_cpgs = get_n_cpgs(all_reads_for_chrom);
+      total_cpgs += chrom_cpgs;
+      if (VERBOSE)
+	cerr << "PROCESSING: " << chrom_name << endl
+	     << "INFORMATIVE READS: " << all_reads_for_chrom.size() << endl
+	     << "CHROM CPGS: " << chrom_cpgs << endl;
       
-    		if (RANDOMIZE_READS)
-    			randomize_read_states(all_reads_for_chrom);
+      if (RANDOMIZE_READS)
+	randomize_read_states(all_reads_for_chrom);
       
-    		const size_t PROGRESS_TIMING_MODULUS = 
-    				std::max(1ul, all_reads_for_chrom.size()/1000);
+      const size_t PROGRESS_TIMING_MODULUS = 
+	std::max(1ul, all_reads_for_chrom.size()/1000);
       
-    		size_t start_read_idx = 0;
-    		const size_t lim = chrom_cpgs - cpg_window + 1;
-    		for (size_t i = 0; i < lim && 
-    		start_read_idx < all_reads_for_chrom.size(); ++i) {
+      size_t start_read_idx = 0;
+      const size_t lim = chrom_cpgs - cpg_window + 1;
+      for (size_t i = 0; i < lim && 
+	     start_read_idx < all_reads_for_chrom.size(); ++i) {
 	
-    			if (PROGRESS && i % PROGRESS_TIMING_MODULUS == 0) 
-    				cerr << '\r' << chrom_name << ' ' << percent(i, chrom_cpgs) << "%\r";
+	if (PROGRESS && i % PROGRESS_TIMING_MODULUS == 0) 
+	  cerr << '\r' << chrom_name << ' ' << percent(i, chrom_cpgs) << "%\r";
 	
-    			vector<epiread> current_window_reads;
-    			get_current_window_reads(all_reads_for_chrom, cpg_window, i, 
+	vector<epiread> current_window_reads;
+	get_current_window_reads(all_reads_for_chrom, cpg_window, i, 
 				 start_read_idx, current_window_reads);
 	
-    			if (current_window_reads.size() > min_reads_per_window) {
-    				const double score = (USE_BIC) ?
-    						test_asm_bic(max_itr, low_prob, high_prob, current_window_reads) :
-    						((IGNORE_BALANCED_PARTITION_INFO) ?
-    								test_asm_lrt(max_itr, low_prob, high_prob, current_window_reads) :
-    								test_asm_lrt2(max_itr, low_prob, high_prob, current_window_reads));
-    				if (score < critical_value || (USE_BIC && score < 0.0))
-    					add_amr(chrom_name, i, cpg_window, current_window_reads, 
-    							score, amrs);
-    				++windows_tested;
-    			}
-    		}
-    		if (PROGRESS)
-    			cerr << '\r' << chrom_name << " 100%" << endl;
-    	}
+	if (current_window_reads.size() > min_reads_per_window) {
+	  double a = low_prob;
+	  double b= high_prob;
+	  const double score = (USE_BIC) ?
+	    test_asm_bic(max_itr, low_prob, high_prob, current_window_reads) :
+	    ((IGNORE_BALANCED_PARTITION_INFO) ?
+	     test_asm_lrt(max_itr, low_prob, high_prob, current_window_reads) :
+	     test_asm_lrt3(max_itr, a, b, current_window_reads));
+	  if (score < critical_value || (USE_BIC && score < 0.0))
+	    add_amr(chrom_name, i, cpg_window, current_window_reads, 
+		    score, amrs,a,b);
+	  ++windows_tested;
+	}
+      }
+      if (PROGRESS)
+	cerr << '\r' << chrom_name << " 100%" << endl;
     }
     
     const size_t windows_accepted = amrs.size();
     double fdr_cutoff = 0.0;
     
-    if(amrs.empty())
-	cerr << "No AMR is found. "<<endl;
-    else{
-    	if (!USE_BIC) {
-      		fdr_cutoff = get_fdr_cutoff(total_cpgs, amrs, critical_value);
-      		eliminate_amrs_by_fdr(fdr_cutoff, amrs);
-    	}
-    
-    	if (VERBOSE)
-	  cerr << "PROCESSED READS: " << total_reads_processed << endl
-	       << "TOTAL CPGS: " << total_cpgs << endl
-	       << "TESTED WINDOWS: " << windows_tested << endl
-	       << "AMR WINDOWS: " << windows_accepted << endl
-	       << "AMR/TESTED: " << (windows_accepted/
-				     static_cast<double>(windows_tested)) << endl
-	       << "FDR CUTOFF: " << fdr_cutoff << endl
-	       << "AMR AFTER FDR: " << amrs.size() << endl;
-	
-	collapse_amrs(amrs);
-	eio.convert_coordinates(amrs);
-	merge_amrs(amrs,gap_limit);
-	
-	if (VERBOSE)
-	  cerr << "MERGED AMRS: " << amrs.size() << endl;
-	
-	std::ofstream of;
-	if (!outfile.empty()) of.open(outfile.c_str());
-	std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-	copy(amrs.begin(), amrs.end(), 
-	     std::ostream_iterator<GenomicRegion>(out, "\n"));
+    if (!USE_BIC) {
+      fdr_cutoff = get_fdr_cutoff(total_cpgs, amrs, critical_value);
+      eliminate_amrs_by_fdr(fdr_cutoff, amrs);
     }
+    
+    if (VERBOSE)
+      cerr << "PROCESSED READS: " << total_reads_processed << endl
+	   << "TOTAL CPGS: " << total_cpgs << endl
+	   << "TESTED WINDOWS: " << windows_tested << endl
+	   << "AMR WINDOWS: " << windows_accepted << endl
+	   << "AMR/TESTED: " << (windows_accepted/
+				 static_cast<double>(windows_tested)) << endl
+	   << "FDR CUTOFF: " << fdr_cutoff << endl
+	   << "AMR AFTER FDR: " << amrs.size() << endl;
+    
+    collapse_amrs(amrs);
+    eio.convert_coordinates(amrs);
+    
+    if (VERBOSE)
+      cerr << "MERGED AMRS: " << amrs.size() << endl;
+    
+    std::ofstream of;
+    if (!outfile.empty()) of.open(outfile.c_str());
+    std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+    copy(amrs.begin(), amrs.end(), 
+	 std::ostream_iterator<GenomicRegion>(out, "\n"));
   }
   catch (const SMITHLABException &e) {
     cerr << e.what() << endl;

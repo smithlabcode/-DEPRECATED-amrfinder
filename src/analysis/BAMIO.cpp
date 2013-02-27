@@ -393,8 +393,10 @@ BAMIO::load_reads_next_chrom(size_t &refID, string &chrom, vector<epiread> &the_
 	  		    << mr.r.get_chrom() << std::endl;
 	  	const unordered_map<string, string>::const_iterator 
 	  	  fn(chrom_seq_files.find(mr.r.get_chrom()));
-	  	if (fn == chrom_seq_files.end())
-	  	  throw SMITHLABException("could not find chrom: " + mr.r.get_chrom());
+	  	if (fn == chrom_seq_files.end()){
+	  	  std::cerr << "could not find chrom: " << mr.r.get_chrom() << std::endl;
+	  	  return false;
+	  	}
 	  	chrom_names.clear();
 	  	chrom_seqs.clear();
 	  	read_fasta_file(fn->second.c_str(), chrom_names, chrom_seqs);
