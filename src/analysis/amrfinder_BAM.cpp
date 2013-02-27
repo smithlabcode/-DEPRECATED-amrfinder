@@ -292,48 +292,49 @@ main(int argc, const char **argv) {
     size_t windows_tested = 0;
     size_t total_cpgs = 0;
     for (size_t refID = 0; refID < refs.size(); ++refID){
-    	eio.load_reads_next_chrom(refID, chrom_name, all_reads_for_chrom);
-    	total_reads_processed += all_reads_for_chrom.size();
+    	if(eio.load_reads_next_chrom(refID, chrom_name, all_reads_for_chrom)){
+    		total_reads_processed += all_reads_for_chrom.size();
     
-      const size_t chrom_cpgs = get_n_cpgs(all_reads_for_chrom);
-      total_cpgs += chrom_cpgs;
-      if (VERBOSE)
-	cerr << "PROCESSING: " << chrom_name << endl
-	     << "INFORMATIVE READS: " << all_reads_for_chrom.size() << endl
-	     << "CHROM CPGS: " << chrom_cpgs << endl;
+    		const size_t chrom_cpgs = get_n_cpgs(all_reads_for_chrom);
+    		total_cpgs += chrom_cpgs;
+    		if (VERBOSE)
+    			cerr << "PROCESSING: " << chrom_name << endl
+    			<< "INFORMATIVE READS: " << all_reads_for_chrom.size() << endl
+    			<< "CHROM CPGS: " << chrom_cpgs << endl;
       
-      if (RANDOMIZE_READS)
-	randomize_read_states(all_reads_for_chrom);
+    		if (RANDOMIZE_READS)
+    			randomize_read_states(all_reads_for_chrom);
       
-      const size_t PROGRESS_TIMING_MODULUS = 
-	std::max(1ul, all_reads_for_chrom.size()/1000);
+    		const size_t PROGRESS_TIMING_MODULUS = 
+    				std::max(1ul, all_reads_for_chrom.size()/1000);
       
-      size_t start_read_idx = 0;
-      const size_t lim = chrom_cpgs - cpg_window + 1;
-      for (size_t i = 0; i < lim && 
-	     start_read_idx < all_reads_for_chrom.size(); ++i) {
+    		size_t start_read_idx = 0;
+    		const size_t lim = chrom_cpgs - cpg_window + 1;
+    		for (size_t i = 0; i < lim && 
+    		start_read_idx < all_reads_for_chrom.size(); ++i) {
 	
-	if (PROGRESS && i % PROGRESS_TIMING_MODULUS == 0) 
-	  cerr << '\r' << chrom_name << ' ' << percent(i, chrom_cpgs) << "%\r";
+    			if (PROGRESS && i % PROGRESS_TIMING_MODULUS == 0) 
+    				cerr << '\r' << chrom_name << ' ' << percent(i, chrom_cpgs) << "%\r";
 	
-	vector<epiread> current_window_reads;
-	get_current_window_reads(all_reads_for_chrom, cpg_window, i, 
+    			vector<epiread> current_window_reads;
+    			get_current_window_reads(all_reads_for_chrom, cpg_window, i, 
 				 start_read_idx, current_window_reads);
 	
-	if (current_window_reads.size() > min_reads_per_window) {
-	  const double score = (USE_BIC) ?
-	    test_asm_bic(max_itr, low_prob, high_prob, current_window_reads) :
-	    ((IGNORE_BALANCED_PARTITION_INFO) ?
-	     test_asm_lrt(max_itr, low_prob, high_prob, current_window_reads) :
-	     test_asm_lrt2(max_itr, low_prob, high_prob, current_window_reads));
-	  if (score < critical_value || (USE_BIC && score < 0.0))
-	    add_amr(chrom_name, i, cpg_window, current_window_reads, 
-		    score, amrs);
-	  ++windows_tested;
-	}
-      }
-      if (PROGRESS)
-	cerr << '\r' << chrom_name << " 100%" << endl;
+    			if (current_window_reads.size() > min_reads_per_window) {
+    				const double score = (USE_BIC) ?
+    						test_asm_bic(max_itr, low_prob, high_prob, current_window_reads) :
+    						((IGNORE_BALANCED_PARTITION_INFO) ?
+    								test_asm_lrt(max_itr, low_prob, high_prob, current_window_reads) :
+    								test_asm_lrt2(max_itr, low_prob, high_prob, current_window_reads));
+    				if (score < critical_value || (USE_BIC && score < 0.0))
+    					add_amr(chrom_name, i, cpg_window, current_window_reads, 
+    							score, amrs);
+    				++windows_tested;
+    			}
+    		}
+    		if (PROGRESS)
+    			cerr << '\r' << chrom_name << " 100%" << endl;
+    	}
     }
     
     const size_t windows_accepted = amrs.size();
