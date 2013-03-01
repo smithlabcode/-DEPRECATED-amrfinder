@@ -479,14 +479,43 @@ EpireadIO::load_reads_next_chrom(string &chrom, vector<epiread> &the_reads) {
 
 void
 EpireadIO::convert_coordinates(vector<GenomicRegion> &amrs) const {
-    unordered_map<string, vector<size_t> >::const_iterator current_cpgs;
-    for (size_t i = 0; i < amrs.size(); ++i) {
-      if (i == 0 || !amrs[i].same_chrom(amrs[i-1])) {
-	current_cpgs = cpg_rev_lookup.find(amrs[i].get_chrom());
-	assert(current_cpgs != cpg_rev_lookup.end());
-      }
-      assert(current_cpgs->second.size() > amrs[i].get_end());
-      amrs[i].set_start(current_cpgs->second[amrs[i].get_start()]);
-      amrs[i].set_end(current_cpgs->second[amrs[i].get_end()]);
-    }
+	if (!EPIREAD_FORMAT) {
+		unordered_map<string, vector<size_t> >::const_iterator current_cpgs;
+		for (size_t i = 0; i < amrs.size(); ++i) {
+			if (i == 0 || !amrs[i].same_chrom(amrs[i-1])) {
+				current_cpgs = cpg_rev_lookup.find(amrs[i].get_chrom());
+				assert(current_cpgs != cpg_rev_lookup.end());
+			}
+			assert(current_cpgs->second.size() > amrs[i].get_end());
+			amrs[i].set_start(current_cpgs->second[amrs[i].get_start()]);
+			amrs[i].set_end(current_cpgs->second[amrs[i].get_end()]);
+		}
+	}
+	else{
+		unordered_map<size_t, size_t> cpgs;
+		vector<string> chrom_names, chrom_seqs;
+		for (size_t i = 0; i < amrs.size(); ++i) {
+			if (i == 0 || !amrs[i].same_chrom(amrs[i-1])) {
+				const unordered_map<string, string>::const_iterator 
+				fn(chrom_seq_files.find(amrs[i].get_chrom()));
+				if (fn == chrom_seq_files.end())
+					throw SMITHLABException("could not find chrom: " + mr.r.get_chrom());
+				chrom_names.clear();
+				chrom_seqs.clear();
+				read_fasta_file(fn->second.c_str(), chrom_names, chrom_seqs);
+				assert(chrom_names.size() == 1);
+				collect_cpgs(chrom_seqs.front(), cpgs);
+			}
+		}
+		for (size_t i = 0; i < amrs.size(); ++i) {
+			const unordered_map<size_t, size_t>::const_iterator 
+				start_itr(cpgs.find(amrs[i].get_start()));
+			const unordered_map<size_t, size_t>::const_iterator
+		    	end_itr(cpgs.find(amrs[i].get_end()));
+			if (start_itr == cpgs.end() || end_itr == cpgs.end())
+				throw SMITHLABException("could not convert:\n" + region.tostring());
+			amrs[i].set_start(start_itr->second);
+			amrs[i].set_end(end_itr->second);
+		}
+	}
 }
