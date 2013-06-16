@@ -23,9 +23,7 @@ ifndef SMITHLAB_CPP
 $(error Must define SMITHLAB_CPP variable)
 endif
 
-PROGS = amrfinder amrtester amrrefiner amrfinder_deltaM amrfinder_BAM
-
-SOURCES = $(wildcard *.cpp)
+PROGS = amrfinder amrtester amrrefiner 
 
 INCLUDEDIRS = $(SMITHLAB_CPP)
 INCLUDEARGS = $(addprefix -I,$(INCLUDEDIRS))
@@ -49,6 +47,7 @@ ifdef BAMTOOLS_ROOT
 INCLUDEDIRS += $(BAMTOOLS_ROOT)/include
 LIBS += -L$(BAMTOOLS_ROOT)/lib -lz -lbamtools
 CXXFLAGS += -DHAVE_BAMTOOLS
+PROGS += amrfinder_BAM
 endif
 
 ifdef OPT
@@ -60,7 +59,8 @@ all: $(PROGS)
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, GenomicRegion.o smithlab_os.o \
 	smithlab_utils.o OptionParser.o MappedRead.o)
 
-amrfinder amrtester amrrefiner amrfinder_deltaM amrfinder_BAM: EpireadStats.o EpireadIO.o Epiread.o
+amrfinder amrtester amrrefiner amrfinder_deltaM amrfinder_BAM: \
+	EpireadStats.o EpireadIO.o Epiread.o
 
 amrfinder_BAM: BAMIO.o
 
