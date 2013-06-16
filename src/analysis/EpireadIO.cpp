@@ -499,7 +499,7 @@ EpireadIO::convert_coordinates(vector<GenomicRegion> &amrs) const {
 				const unordered_map<string, string>::const_iterator 
 				fn(chrom_seq_files.find(amrs[i].get_chrom()));
 				if (fn == chrom_seq_files.end())
-					throw SMITHLABException("could not find chrom: " + mr.r.get_chrom());
+					throw SMITHLABException("could not find chrom: " + amrs[i].get_chrom());
 				chrom_names.clear();
 				chrom_seqs.clear();
 				read_fasta_file(fn->second.c_str(), chrom_names, chrom_seqs);
@@ -513,7 +513,7 @@ EpireadIO::convert_coordinates(vector<GenomicRegion> &amrs) const {
 			const unordered_map<size_t, size_t>::const_iterator
 		    	end_itr(cpgs.find(amrs[i].get_end()));
 			if (start_itr == cpgs.end() || end_itr == cpgs.end())
-				throw SMITHLABException("could not convert:\n" + region.tostring());
+				throw SMITHLABException("could not convert:\n" + amrs[i].tostring());
 			amrs[i].set_start(start_itr->second);
 			amrs[i].set_end(end_itr->second);
 		}
