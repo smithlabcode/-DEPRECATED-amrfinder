@@ -1,3 +1,13 @@
+
+This respository has been marked as DEPRECATED as of 2014, after the
+actively maintained code of `amrfinder`, `amrtester`, and `allelicmeth`
+was merged into [Methpipe](https://github.com/smithlabcode/methpipe).
+
+Please see the methpipe repository for updated and actively maintained
+version of these programs.
+
+========================================================================
+
 This is the README file for the first release of amrfinder version 1.02.
 amrfinder is a program for identifying allele-specific DNA methylation
 from bisulfite short-read sequencing technology
